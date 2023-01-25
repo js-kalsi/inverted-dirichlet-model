@@ -29,88 +29,73 @@
 
 """
 
-from dataSet import load_dataset as DATASET # Importing DataSet
-from KMeans import KMeans as KM # contains KNN related functionality.
-from lib.helpers import *  # class contains the logic like performanceMeasure, Precision etc.
-from lib.constants import CONST  # contains the constant values.
-from invertedDirichlet import inverted_dirichlet as inverted_dirichlet
-from numpy import sum as SUM
-from numpy import asarray as ASARRAY
-import warnings
 import sys
-# from sklearn.preprocessing import normalize as NORMALIZE
-warnings.filterwarnings("error")
+
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import normalize
+
+from helpers import cluster_density_evaluation, method_of_moment, g_estimation, \
+    load_dataset, posterior_estimator, split_data_by_label, hessian, hessian_inverse, alpha_updater
+from inverted_dirichlet import inverted_dirichlet
+from parameters import DATASET_PATH, K, THRESHOLD
 
 
-def initial_algorithm(no_of_clusters):
-    data_set, size, original_labels = DATASET(CONST['CM1'])
+def initial_algorithm():
+    """
+
+    @return:
+    """
+    data_set, original_labels = load_dataset(DATASET_PATH)
     data_set = normalize(data_set) + sys.float_info.epsilon
-    labels = ASARRAY(KM(data_set, no_of_clusters).predict()).reshape(1, size)[0]
+    data_set = ((data_set - np.amin(data_set, axis=0)) / (np.max(data_set, axis=0) - np.amin(data_set, axis=0)))
+    data_set = data_set + sys.float_info.epsilon
+    labels = np.asarray(KMeans(n_clusters=K).fit(data_set).predict(data_set)).reshape(1, len(data_set))[0]
     clusters, unique_clusters, dimension = split_data_by_label(labels, data_set)
-    initial_py = ASARRAY(mixer_estimator(clusters, size)).reshape(1, no_of_clusters)
-    initial_alpha = method_of_moment(no_of_clusters, clusters, dimension)
-    return initial_alpha, data_set, dimension, size, initial_py, original_labels
+    initial_py = np.asarray([len(clusters[k]) / len(data_set) for k in clusters]).reshape(1, K)
+    initial_alpha = method_of_moment(K, clusters, dimension)
+    return initial_alpha, data_set, dimension, len(data_set), initial_py, original_labels
 
 
-"""
-/**
- * This function Contains the Estimation Step logic.
- * @param  {Integer} K.
- * @param  {Integer} mix.
- * @param  {Integer} alphaSet.
- * @param  {Integer} imgPixels.
- * @param  {Integer} pixelSize.
- * @return {String} pdfMatrix.
- * @return {String} posteriorProbability.
- */
-"""
+def estimation_step(no_of_clusters, mix, alpha, data, dim):
+    """
+    This function Contains the Estimation Step logic.
 
-
-def estimation_step(K, mix, alpha, data, dim):
-    pdf = inverted_dirichlet(K, alpha, data, dim).pdf_fetcher()
+    @param no_of_clusters:
+    @param mix:
+    @param alpha:
+    @param data:
+    @param dim:
+    @return:
+    """
+    pdf = inverted_dirichlet(no_of_clusters, alpha, data, dim).pdf_fetcher()
     posterior = posterior_estimator(pdf, mix)
     return pdf, posterior
 
 
-"""
-/**
- * This function Contains the Maximization Step logic.
- * @param  {Integer} K.
- * @param  {Integer} alphaSet.
- * @param  {Integer} imgPixels.
- * @param  {Integer} dim.
- * @param  {Integer} posteriorProb.
- * @param  {Integer} pixelSize.
- * @param  {Integer} imageH.
- * @param  {Integer} imageW.
- * @param  {Integer} mix.
- * @return {String} mix.
- * @return {String} alpha.
- */
-"""
+def maximization_step(no_of_clusters, alpha, data, dim, posterior, size):
+    """
+    This function Contains the Maximization Step logic.
 
-
-def maximization_step(K, alpha, data, dim, posterior, size):
-    mix_m_step = mix_updater(posterior, size, K)  # Checked: Working Fine!
-    G = g_estimation(data, size, alpha, posterior, dim, K)  # Checked: Working Fine!
-    h_diagonal, h_constant, h_a = hessian(dim, posterior, alpha)  # Checked: Working Fine!
-    h_inverse = hessian_inverse(K, h_diagonal, h_constant, h_a)  # Checked: Working Fine!
-    alpha_m_step = alpha_updater(alpha, h_inverse, G, K, dim)  # Checked: Working Fine!
+    @param K:
+    @param alpha:
+    @param data:
+    @param dim:
+    @param posterior:
+    @param size:
+    @return:
+    """
+    mix_m_step = (np.sum(posterior, axis=0) / size).reshape(1, no_of_clusters)
+    G = g_estimation(data, size, alpha, posterior, dim)
+    h_diagonal, h_constant, h_a = hessian(dim, posterior, alpha)
+    h_inverse = hessian_inverse(no_of_clusters, h_diagonal, h_constant, h_a)
+    alpha_m_step = alpha_updater(alpha, h_inverse, G, no_of_clusters, dim)
     return mix_m_step, alpha_m_step
 
 
-"""
-/**
- * This function add the array's element and return them in the form of a String.
- * @param  {Integer} a.
- * @return {String} which contains the Sum of Array.
- */
-"""
-
 if __name__ == '__main__':
-    K = CONST['K']
-    cluster_drop_val = CONST['cluster_drop_val']
-    alpha, data, dim, size, mix, original_labels = initial_algorithm(K)
+    alpha, data, dim, size, mix, original_labels = initial_algorithm()
     counter = 1
     obj = {'alpha': []}
 
@@ -120,18 +105,17 @@ if __name__ == '__main__':
         obj['alpha'].append(alpha)
         # mix, alpha, K = cluster_drop_test(mix, alpha, cluster_drop_val, K, dim)
         # converge = convergence_test(obj['alpha'], CONST["algConverge"])
-        labels = predict_labels(posterior)
-        accuracy = predict_accuracy(labels, original_labels)
+        labels = posterior.argmax(axis=1)
+        accuracy = accuracy_score(original_labels, labels)
         counter = counter + 1
         print("ORIGINAL  :>", cluster_density_evaluation(original_labels))
         print("PREDICTED :>", cluster_density_evaluation(labels))
-        if counter == CONST['THRESHOLD']:
+        if counter == THRESHOLD:
             print("################### Final Parameters ###################")
             print("K : ", K)
-            print("Mix : ", mix, SUM(mix))
+            print("Mix : ", mix, np.sum(mix))
             print("Alpha : ", alpha)
             print("Counter : ", counter)
             print("ORIGINAL  :>", cluster_density_evaluation(original_labels))
             print("PREDICTED :>", cluster_density_evaluation(labels))
             exit()
-
