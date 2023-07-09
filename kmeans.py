@@ -28,7 +28,7 @@ class KMeans:
 
     def __init__(self, imgPixels, K):
         self.imgPixels = imgPixels
-        self.KM = KM(n_clusters=K, random_state=0).fit(self.imgPixels)
+        self.KM = KM(n_clusters=K, random_state=0, n_init="auto").fit(self.imgPixels)
 
     """
         /**
