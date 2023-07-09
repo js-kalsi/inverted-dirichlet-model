@@ -11,7 +11,7 @@
 
 """
 CONST = dict()
-CONST['K'] = 2
+CONST['K'] = 3
 CONST['cluster_drop_val'] = 0.001
 CONST['algConverge'] = 0.01
 CONST['CM1'] = 'cm1.csv'

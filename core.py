@@ -1,51 +1,20 @@
-"""
-/*
-*       Coded by : Jaspreet Singh Kalsi.
-*
-*       "Thesis  Chapter-2 Part A
-*       (Image Fragmentation using Inverted Dirichlet Distribution using Markov Random Field as a Prior).
-*
-*       ```python core.py <Image-Name>```
-*
-*
-*   EM Algorithm Inverted Dirichlet Mixture Model.
-*       1) Convert image pixels into array.
-*       2) Normalize it.
-*       3) Assume Number of Cluster(K) =  10 & apply KMeans clustering algorithm
-*          to obtain K clusters for Initialization purposes.
-*       4) Use `Method of Moments` for obtaining the initial values for Mixing Parameters.
-*       5) Expectation Step:
-*                           => Compute the Posterior Probability.
-*       6) Maximization Step:
-*                           => Update the Mixing Parameter.
-*                           => Update the Alpha Parameter using `Newton Raphson` Method.
-*       7) If Mixing Parameter of any Cluster < Cluster-Skipping Threshold:
-*                           => Skip that particular Cluster.
-*       8) Compute the Log Likelihood and check for Convergence by comparing the difference
-*          between last two likelihood values with the Convergence Threshold.
-*       9) If algorithm(converge) :terminate
-*       10) Go-to Step 5(Expectation Step).
-*/
-
-"""
-
-from dataSet import load_dataset as DATASET # Importing DataSet
-from KMeans import KMeans as KM # contains KNN related functionality.
-from lib.helpers import *  # class contains the logic like performanceMeasure, Precision etc.
-from lib.constants import CONST  # contains the constant values.
-from invertedDirichlet import inverted_dirichlet as inverted_dirichlet
-from numpy import sum as SUM
-from numpy import asarray as ASARRAY
 import warnings
-import sys
-# from sklearn.preprocessing import normalize as NORMALIZE
+
+from sklearn.cluster import KMeans  # contains KNN related functionality.
+
+from dataset import load_dataset  # Importing DataSet
+from inverted_dirichlet import inverted_dirichlet as inverted_dirichlet
+from lib.constants import CONST  # contains the constant values.
+from lib.helpers import *  # class contains the logic like performanceMeasure, Precision etc.
+
 warnings.filterwarnings("error")
 
 
 def initial_algorithm(no_of_clusters):
-    data_set, size, original_labels = DATASET(CONST['CM1'])
+    data_set, size, original_labels = load_dataset(CONST['CM1'])
     data_set = normalize(data_set) + sys.float_info.epsilon
-    labels = ASARRAY(KM(data_set, no_of_clusters).predict()).reshape(1, size)[0]
+    kmeans = KMeans(n_clusters=CONST['K'], random_state=0, n_init="auto").fit(data_set)
+    labels = ASARRAY(kmeans.predict(data_set)).reshape(1, size)[0]
     clusters, unique_clusters, dimension = split_data_by_label(labels, data_set)
     initial_py = ASARRAY(mixer_estimator(clusters, size)).reshape(1, no_of_clusters)
     initial_alpha = method_of_moment(no_of_clusters, clusters, dimension)
@@ -118,13 +87,9 @@ if __name__ == '__main__':
         pdf, posterior = estimation_step(K, mix, alpha, data, dim)
         mix, alpha = maximization_step(K, alpha, data, dim, posterior, size)
         obj['alpha'].append(alpha)
-        # mix, alpha, K = cluster_drop_test(mix, alpha, cluster_drop_val, K, dim)
-        # converge = convergence_test(obj['alpha'], CONST["algConverge"])
         labels = predict_labels(posterior)
         accuracy = predict_accuracy(labels, original_labels)
         counter = counter + 1
-        print("ORIGINAL  :>", cluster_density_evaluation(original_labels))
-        print("PREDICTED :>", cluster_density_evaluation(labels))
         if counter == CONST['THRESHOLD']:
             print("################### Final Parameters ###################")
             print("K : ", K)
@@ -134,4 +99,3 @@ if __name__ == '__main__':
             print("ORIGINAL  :>", cluster_density_evaluation(original_labels))
             print("PREDICTED :>", cluster_density_evaluation(labels))
             exit()
-

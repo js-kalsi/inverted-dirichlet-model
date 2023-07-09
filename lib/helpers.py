@@ -11,35 +11,33 @@
 
 """
 
-
-import sys
-import numpy as np
 import pickle
+import sys
 from math import pow as POW
-from scipy.special import polygamma as POLYGAMMA
-from numpy import sum as SUM
-from numpy import log as LOG
-from numpy import zeros as ZEROS
-from numpy import asarray as ASARRAY
-from numpy import mean as MEAN, var as VAR
-from numpy import full as FULL
-from numpy import concatenate as CONCAT
-from sklearn.preprocessing import normalize as NORMALIZE
-from numpy import diag as DIAGONAL
-from numpy import matmul as MATMUL
+
+import numpy as np
 from numpy import all as ALL
-from numpy import amin as MIN
 from numpy import amax as MAX
+from numpy import amin as MIN
+from numpy import asarray as ASARRAY
+from numpy import concatenate as CONCAT
+from numpy import diag as DIAGONAL
+from numpy import full as FULL
+from numpy import log as LOG
+from numpy import matmul as MATMUL
+from numpy import mean as MEAN, var as VAR
+from numpy import sum as SUM
+from numpy import zeros as ZEROS
+from scipy.special import polygamma as POLYGAMMA
 from sklearn.metrics import accuracy_score as ACCURACY_SCORE
+from sklearn.preprocessing import normalize as NORMALIZE
 
 
-
-
-def display( paramOne, paramTwo, paramThree):
+def display(paramOne, paramTwo, paramThree):
     print(('{0}\'s {1} : {2}').format(paramOne, paramTwo, paramThree))
 
 
-def logger( data):
+def logger(data):
     file = open('./dataset/logs.txt', 'wb')
     pickle.dump(data, file)
     file.close()
@@ -49,7 +47,7 @@ def normalize(pixels):
     return (pixels - MIN(pixels, axis=0)) / (MAX(pixels, axis=0) - MIN(pixels, axis=0))
 
 
-def mixer_estimator( clusterSet, pixelSize):
+def mixer_estimator(clusterSet, pixelSize):
     return [len(clusterSet[cluster]) / pixelSize for cluster in clusterSet]
 
 
@@ -63,7 +61,7 @@ def split_data_by_label(labels, imgPixels):
     return clustersObj, unique_Clusters, len(clustersObj[0][0])
 
 
-def intialMixerEstimator( mix, pixelSize, K):
+def intialMixerEstimator(mix, pixelSize, K):
     return ASARRAY([FULL((pixelSize, 1), pi) for pi in mix]).T.reshape(pixelSize, K)
 
 
@@ -82,7 +80,7 @@ def method_of_moment(K, cluster_set, dim):
     return NORMALIZE(alpha)
 
 
-def posterior_estimator( pdf, mix):
+def posterior_estimator(pdf, mix):
     return ASARRAY([(mix * pV) / SUM(mix * pV) for pV in pdf]).reshape(len(pdf), mix.size)
 
 
